@@ -399,7 +399,7 @@ class Grain:
         d_map_g = np.zeros([len(gvm_list),len(x), len(y)], float)
         for i,gvm in enumerate(gvm_list):
             # weights.append( np.sqrt( np.sqrt(gvm['avg_intensity'])*gvm['tth']/ (0.25+gvm['dg']) ) )
-            ind = abs(y - gvm['stage_y']) < beamsize/2
+            ind = abs(y - (-gvm['stage_y'])) < beamsize/2
             d_map_g[i,:,ind] += 1
             d_map_g[i] = rotate(d_map_g[i], -(gvm['omega']+sample_rot), axes=(1, 0), reshape=False)
             d_map += d_map_g[i]
