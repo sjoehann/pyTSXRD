@@ -8,7 +8,6 @@ import os, sys, subprocess, pickle
 import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
-# sys.path.insert(0, '/asap3/petra3/gpfs/common/p21.2/scripts/')
 sys.path.insert(0, '/home/sjoehann/')
 import pyTSXRD
 from pyTSXRD.angles_and_ranges import merge_overlaps
@@ -157,5 +156,77 @@ def set_polyxsim(grainspotter, material = None):
     PS.set_attr('psf', 0.7)
     PS.set_attr('peakshape', [1, 4, 0.5])
     return PS
+
+def get_p212_sweep_info(path_gen,i_slow,i_fast,det_num,default_xyz=[0,0,0],meta_key=None):
+    x,y,z = None,None,None
+
+    if '.log' in meta_key.split()[-1]:
+        log_meta = load_p212_log(meta_key)
+        command = parse_p212_command(log_meta['command'])
+
+        if command['slow']:
+            if 'x' in command['slow']['motor']:
+                x = command['slow']['start'] + i_slow * command['slow']['step']
+            if 'y' in command['slow']['motor']:
+                y = command['slow']['start'] + i_slow * command['slow']['step']
+            if 'z' in command['slow']['motor']:
+                z = command['slow']['start'] + i_slow * command['slow']['step']
+
+        if command['fast']:
+            if 'x' in command['fast']['motor']:
+                x = command['fast']['start'] + i_fast * command['fast']['step']
+            if 'y' in command['fast']['motor']:
+                y = command['fast']['start'] + i_fast * command['fast']['step']
+            if 'z' in command['fast']['motor']:
+                z = command['fast']['start'] + i_fast * command['fast']['step']
+
+        x_fn,y_fn,z_fn = default_xyz
+        if x is not None:
+            x_fn = x
+        if y is not None:
+            y_fn = y
+        if z is not None:
+            z_fn = z
+
+        fio_file_path = meta_key.replace('.log',f'_y_{y_fn:.3f}_z_{z_fn:.3f}.fio')
+        fio_meta = load_p212_fio(fio_file_path)
+        command = parse_p212_command(fio_meta['command'])
+
+    elif '.fio' in meta_key.split()[-1]:
+        log_meta = None
+        fio_meta = load_p212_fio(meta_key)
+        command = parse_p212_command(fio_meta['command'])
+
+    else:
+        log_meta = None
+        fio_meta = None
+        command = parse_p212_command(meta_key)
+
+    path_in_raw = command['directory'].split('raw')[1].replace('%D',f'{det_num}')
+    if path_in_raw[-1] != '/':
+        path_in_raw += '/'
+
+    raw_data_path = path_gen + 'raw' + path_in_raw
+
+    return {'omega_start':command['sweep']['start'] - 180,'omega_step':command['sweep']['step'],'directory':raw_data_path,'stem':command['file_stem'],'ext':command['file_ext'],'frames':list(range(command['sweep']['points']))[1:-2],'fio_meta':fio_meta,'log_meta':log_meta}
+
+def add_p212_sweep(ImP,dy,meta_key,frames=None):
+    fio_meta = load_p212_fio(meta_key)
+    command = parse_p212_command(fio_meta['command'])
+
+    path_in_raw = command['directory'].split('raw')[1].replace('%D','4')
+    if path_in_raw[-1] != '/':
+        path_in_raw += '/'
+
+    directory = path_gen + 'raw' + path_in_raw
+    stem = command['file_stem']
+    ext = command['file_ext']
+    omega_start = command['sweep']['start'] - 180
+    omega_step = command['sweep']['step']
+
+    if frames is None:
+        frames = list(range(command['sweep']['points']))[1:-2]
+
+    ImP.add_sweep(dy=dy,omega_start=omega_start,omega_step=omega_step,directory=directory,stem=stem,ndigits='auto',ext=ext,frames=frames)
 
 print(single_separator+'\nSETTINGS LOADED!')
