@@ -419,7 +419,7 @@ class PolySim:
         if del_old > 0: self.add_to_log(f"Deleted old files.", False)           
         self.save_inp(overwrite = True)
 
-        command = 'PolyXSim.py -i ' + self.directory+self.inp_file
+        command = '/software/ImageD11/2.0.2/bin/PolyXSim.py -i ' + self.directory+self.inp_file
         self.add_to_log(f'Running: '+command, False)
         process = subprocess.run(command.split(), check=True,stdout=subprocess.PIPE, universal_newlines=True)
         self.add_to_log('Output:'+process.stdout, False)

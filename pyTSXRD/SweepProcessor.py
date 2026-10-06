@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from hexrd import imageseries
 from hexrd.imageseries.omega import OmegaWedges
-from ImageD11 import columnfile, blobcorrector
+from ImageD11 import columnfile, blobcorrector, peaksearcher
 import pyTSXRD
 from pyTSXRD.angles_and_ranges import merge_overlaps
 
@@ -148,30 +148,16 @@ class SweepProcessor:
         for fname in all_files:
             stem, ext = os.path.splitext(fname)
             if ext in ['.tif', '.cbf', '.edf', '.hdf5', '.h5','nx5']:
-                if ext != s['ext']:
-                    #print('Detected file extension \''+ext+'\' vs provided \''+str(s['ext'])+'\'.')
-                    x = input('Type: ! to overwrite, k - keep:')
-                    if x in ['!']: s['ext'] = ext
+
                 dig_part  = [x for x in regex.findall(stem)][-1]
                 dig_len   = len(dig_part)
                 stem_part = stem.replace(dig_part, '')
-                if check_stem and stem_part != s['stem']:
-                    #print('Detected file stem \''+stem_part+'\' vs provided \''+str(s['stem'])+'\'.')
-                    x = input('Type: ! to overwrite, k - keep, d - keep and don\'t ask anymore:')
-                    if x in ['!']: s['stem'] = stem_part
-                    if x in ['d']: check_stem = False
+            
                 if check_digits and dig_len != s['ndigits']:
                     #print(f'Detected {dig_len} digits in file name vs provided '+str(s['ndigits']))
                     if s['ndigits'] == 'auto':
                         s['ndigits'] = dig_len
-                    else:                    
-                        x = input('Type: ! to overwrite, k - keep, d - keep and don\'t ask anymore:')
-                        if x in ['!']: s['ndigits'] = dig_len
-                        if x in ['d']: check_digits = False
-        
-#         if s['ext'] in ['.cbf', '.tif'] and 'p21.2' in self.directory:
-#             import cbftiffmxrdfix
-        #print(all_files)
+                  
         matching_files = [f for f in all_files if (s['stem'] in f and s['ext'] in f)]
         n0 = int(matching_files[0].replace(s['stem'],'').replace(s['ext'],''))
         for i in range(c['frames'][-1]):
@@ -637,7 +623,7 @@ class SweepProcessor:
             path_inp = os.path.join(pars['image_dir'], pars['image_stem'])
 
         # construct the command for peaksearch.py
-        command = 'peaksearch.py -o {} -n {} '.format(path_out, path_inp)
+        command = '/home/sjoehann/.conda/envs/hexrdgui/bin/peaksearch.py -o {} -n {} '.format(path_out, path_inp)
         command+= '-F {} --ndigits {:d} '.format(pars['image_ext'], pars['ndigits'])
         command+= '-f {:d} -l {:d} '.format(first_im, last_im)
         command+= '-S {:.3f} -T {:.3f} -p Y'.format(pars['omegastep'], pars['startomega'])
@@ -646,7 +632,7 @@ class SweepProcessor:
         if 'kwargs' in pars: command += ' {}'.format(pars['kwargs'])
         
         self.add_to_log('Running peaksearch in: '+self.directory+'\n'+command, False)
-        print(command)
+        print(os.getcwd())
         if use_imgs:
             import time
             reallystart = time.time()
@@ -668,10 +654,14 @@ class SweepProcessor:
             #print("Total time = %f /s" % ( t ))
         else:
             print(command.split())
-            process = subprocess.run(command.split(), check=True,
+            python_executable = sys.executable  # Make sure to import sys at the top of your script
+            process = subprocess.run([python_executable, '/home/sjoehann/.conda/envs/hexrdgui/bin/peaksearch.py'] + command.split()[1:], 
+                                     check=True, 
                                      stdout=subprocess.PIPE, universal_newlines=True)
+            #process = subprocess.run(command.split(), check=True,
+                                     #stdout=subprocess.PIPE, universal_newlines=True)
             self.add_to_log('Output:'+process.stdout, False)
-            #print('Last line in the output:'+process.stdout.splitlines()[-1])
+            print('Last line in the output:'+process.stdout.splitlines()[-1])
         self.set_attr('peaksearch_thrs', pars['thresholds'])
         
         if 'spline' in pars.keys():
@@ -713,12 +703,14 @@ class SweepProcessor:
             PI = pyTSXRD.PeakIndexer(directory = pars['output_dir'])
             PI.load_flt(flt_file = pars['stem_out']+ f'_peaks_t{thr}.flt') # merged
             peaks_in_range = []
+            #PI.print()
             for p in PI.peaks:
                 if p['IMax_int'] > I_min:
                     if p['IMax_int'] < I_max:
                         if p['Number_of_pixels'] > 2:
                             peaks_in_range.append(p)
             PI.set_attr('peaks', peaks_in_range)
+            print(len(PI.peaks))
             PI.save_flt(flt_file = pars['stem_out']+ f'_peaks_cleaned_t{thr}.flt', overwrite = True)
             if len(peaks_in_range) < 1 and thr in thresholds:
                 thresholds.remove(thr)       
@@ -730,7 +722,7 @@ class SweepProcessor:
         else:
             file_out = os.path.join(pars['output_dir'],pars['stem_out']+'.flt')
         # construct the command for merge_flt.py
-        command = 'merge_flt.py {} {} {} {:d} '.format(par_file,inp,file_out,pars['pixel_tol'])
+        command = '/home/sjoehann/.conda/envs/hexrdgui/bin/merge_flt.py {} {} {} {:d} '.format(par_file,inp,file_out,pars['pixel_tol'])
         command+= ('{:d} '*len(thresholds)).format(*thresholds)
         self.add_to_log('Merging flt files matching: '+inp+'\n'+command, False)
         process=subprocess.run(command.split(), check=True, stdout=subprocess.PIPE, universal_newlines=True)

@@ -29,10 +29,10 @@ single_separator = "------------------------------------------------------------
 double_separator = "==============================================================\n"
 
 class Grain:
-    
+
     def __init__(self, directory=None, grain_id=None):
         self.log = []
-#         self.absorbed =[]
+        #         self.absorbed =[]
         self.directory = None
         self.grain_id = None
         self.log_file = None
@@ -57,17 +57,22 @@ class Grain:
         self.index = None
         self.miller = [0,0,0]
         self.add_to_log('Initialized Grain object.', False)
+        self.surfstrucs=[]
+        self.sort_ind=[]
+        self.sort_qs=[]
+        self.acc = None
+        self.comp = None
         if directory: self.set_attr('directory', directory)
         if grain_id : self.set_attr('grain_id' , grain_id)
         return
- 
+
 
     def add_to_log(self, str_to_add, also_print = False):
         self.log.append( str(datetime.now()) + '> ' + str_to_add )
         if also_print: print(str_to_add)
         return
-    
-    
+
+
     def set_attr(self, attr, value):
         """Method to set an attribute to the provided value and making a corresponding record in the log."""
         try:
@@ -80,8 +85,8 @@ class Grain:
             old, new = f'list of {len(old)}', f'list of {len(new)}'
         self.add_to_log(attr+': '+str(old)+' -> '+str(new))
         return
-        
-        
+
+
     def add_to_attr(self, attr, value):
         """Method to append value to the choosen attribute. The attribute must be a list."""
         try:
@@ -92,8 +97,8 @@ class Grain:
         new_list = getattr(self, attr)
         self.add_to_log(attr+': += '+str(new_list[-1]))
         return
-    
-    
+
+
     def print(self, also_log = False):
         print(double_separator+'Grain object:')
         print('directory:' , self.directory )
@@ -116,13 +121,13 @@ class Grain:
         print('gvectors_report:'  , len(self.gvectors_report  ))
         print('measured_gvectors:', len(self.measured_gvectors))
         print('expected_gvectors:', len(self.expected_gvectors))
-#         print('absorbed:', len(self.absorbed))
+    #         print('absorbed:', len(self.absorbed))
         if also_log:
             print(single_separator + 'Log:')
             for record in self.log: print(record)
         return
 
-    
+
     def load_log(directory, log_file):
         print(double_separator + 'Reading file: ' + directory + log_file)
         if not os.path.isfile(directory + log_file): raise FileNotFoundError
@@ -208,7 +213,7 @@ class Grain:
         f.close()
         print(f'{len(list_of_grains)} grains loaded.\n')
         return list_of_grains
-    
+
 
     def load_gff(directory, gff_file):
         #print(double_separator + 'Reading file: ' + directory + gff_file)
@@ -239,8 +244,8 @@ class Grain:
         f.close()                             
         print(f'{len(list_of_grains)} grains loaded.\n')
         return list_of_grains
-    
-    
+
+
     def save_gff(directory, gff_file, list_of_grains = None, overwrite = False):
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -261,7 +266,7 @@ class Grain:
                     return
                 else:
                     gff_file = x
-                    
+
         titles = "grain_id mean_IA chisq x y z U11 U12 U13 U21 U22 U23 U31 U32 U33 UBI11 UBI12 UBI13 UBI21 UBI22 UBI23 UBI31 UBI32 UBI33".split()
         f = open(directory+gff_file ,"w") 
         f.write('# '+' '.join(titles) + '\n')
@@ -274,8 +279,8 @@ class Grain:
         f.close()
         #print('File closed!')
         return
-    
-    
+
+
     def identify_measured(self, gvectors):
         measured_gvectors = []
         for gv in self.gvectors_report:
@@ -290,7 +295,7 @@ class Grain:
                 measured_gvectors.append(gv_list[0])
         self.set_attr('measured_gvectors', measured_gvectors)
         return 
-        
+
     def simulate_gvectors(self, geometry, omega_range, tth_range, beamflux, bckg, psf, peakshape):
         P = pyTSXRD.PolySim(directory = self.directory)
         P.set_attr('geometry', geometry)
@@ -298,7 +303,7 @@ class Grain:
         P.set_attr('direc', './sim/')
         P.set_attr('stem', 'sim')
         P.set_attr('grains', [self])
-         
+
         P.set_attr('omega_start', omega_range.start)
         P.set_attr('omega_step', omega_range.step)
         P.set_attr('omega_end', omega_range.end)
@@ -319,8 +324,8 @@ class Grain:
         P.set_attr('peakshape', peakshape) #[1, 4, 0.5])
         P.save_inp(inp_file = 'sim.inp')
         return
-        
-        
+
+
     def plot_measured_vs_expected(self, directory = None):
         if not directory: directory = self.directory
         if not os.path.exists(directory):
@@ -332,7 +337,7 @@ class Grain:
         tth_expected = [gv['tth']   for gv in self.expected_gvectors]
         eta_expected = [gv['eta']   for gv in self.expected_gvectors]
         omg_expected = [gv['omega'] for gv in self.expected_gvectors]
-        
+
         fig = plt.figure(figsize=(8, 6))
         sub1 = fig.add_subplot(131)
         sub1.scatter(omg_expected, eta_expected, s=10, c='k', marker="o", label='Expected')
@@ -357,13 +362,13 @@ class Grain:
         plt.title(f'Expected {len(self.expected_gvectors)} (black), measured {len(self.measured_gvectors)} (red)')
         plt.xlabel('tth (deg)')
         plt.ylabel('eta (deg)')
-        
+
         plt.show()
         fig.savefig(directory+self.log_file.replace('.log', '')+'_g'+str(self.grain_id)+'_scatter.png')
         self.add_to_log('Saved measured vs expected: '+self.log_file.replace('.log', '')+'_g'+str(self.grain_id)+'_scatter.png', False)
         return
 
-    
+
     def compute_density_map(self, GE_list, x, y, beamsize, omg_tol, eta_tol, tth_tol, support_thr,sample_rot=0,final_map=False,bigbeam=False):
         """Computed density and support maps on x,y grid. G-vectors are searched from a list of GvectorEvaluators.
         They are filtered according to tolerances and then also filters out gvectors that do not overlap with the support."""
@@ -426,21 +431,26 @@ class Grain:
         self.set_attr('gvm_list', gvm_list)
         self.set_attr('gvectors', gvectors)
         return
-    
-    def make_array(self,completeness_th=0.5,also_plot=False):
+
+    def make_array(self, completeness_th=0.5, also_plot=False, comp=True):
         """Method of extracting the grain making a completeness map-array"""
-        len_exp = len(self.expected_gvectors )
+        len_exp = len(self.expected_gvectors)
         d_map_smoothed = scipy.ndimage.gaussian_filter(self.d_map, 10/2.355)
-        if np.max(self.d_map)/len_exp <= completeness_th-0.15: #remove grains with intensity that is very low 
-            grainmap = 0*d_map_smoothed
+        if comp:
+            if np.max(self.d_map)/len_exp <= completeness_th - 0.15:
+                grainmap = 0 * d_map_smoothed
+            else:
+                C = d_map_smoothed / len_exp
+                support = C > (completeness_th * np.max(C))
+                support_smoothed = scipy.ndimage.gaussian_filter(np.float32(support), 10/2.355)
+                r = np.sqrt(len(np.nonzero(d_map_smoothed * support_smoothed)[0]) / np.pi)
+                grainmap = (C * (support_smoothed > completeness_th)) / np.sqrt((np.max(C) * np.sqrt(r)))
         else:
-            C = d_map_smoothed/len_exp
-            support = C > (completeness_th*np.max(C)) #mask of C>th*C_max
-            support_smoothed = scipy.ndimage.gaussian_filter(np.float32(support), 10/2.355) 
-            r = np.sqrt(len(np.nonzero(d_map_smoothed*support_smoothed)[0])/np.pi) #approximate radius of the grain
-            grainmap = (C * (support_smoothed > completeness_th))/np.sqrt((np.max(C)*np.sqrt(r)))
+            support = d_map_smoothed > completeness_th * np.amax(d_map_smoothed)
+            support_smoothed = scipy.ndimage.gaussian_filter(np.float32(support), 10/2.355)
+            grainmap = d_map_smoothed * (support_smoothed > completeness_th)
         if also_plot:
-            plt.figure(figsize=(4,4))
+            plt.figure(figsize=(4, 4))
             plt.imshow(np.rot90(grainmap))
             plt.colorbar()
             plt.show()
@@ -448,7 +458,7 @@ class Grain:
         self.set_attr('index', np.nonzero(grainmap))
         self.euler2miller()
         return
-    
+
     def sample_mask(self,radius):
         """removes values outside of edges of a round sample. Note that the radious is in pixels and not mm."""
         shape = np.shape(self.matrix)
@@ -460,7 +470,7 @@ class Grain:
         grainmap = self.matrix*mask
         self.set_attr('matrix', grainmap)
         self.set_attr('index', np.nonzero(grainmap))
-        
+
     def plot_colors_singlegrains(self,plot_range,label_range,also_save=False):
         """Will plot the inverse pole figure map of one grain"""
         plt.rcParams["axes.grid"] = False
@@ -488,7 +498,7 @@ class Grain:
         if also_save:
             plt.savefig(self.directory+f'colordmap_{self.grain_id}.png',transparent=True,bbox_inches='tight')
         plt.show()
-    
+
     def euler2miller(self,maxindex=4): 
         """Function for calculating approximate miller index for a grain"""
         phi1=np.deg2rad(self.phi[0])
@@ -500,15 +510,14 @@ class Grain:
                     [-np.cos(phi1)*np.sin(phi2)-np.sin(phi1)*np.cos(phi2)*np.cos(PHI),
                      np.sin(phi1)*np.sin(phi2)+np.cos(phi1)*np.cos(phi2)*np.cos(PHI), np.cos(phi2)*np.sin(PHI)],
                     [ np.sin(phi1)*np.sin(PHI), -np.cos(phi1)*np.sin(PHI), np.cos(PHI) ]])
-       
+
         hkl1=np.sort(np.round(np.abs(g.T[2])/np.max(np.abs(g.T[2]))*maxindex))
         gcdnumber=gcd(int(hkl1[0]), gcd(int(hkl1[1]), int(hkl1[2])))
         millers = (hkl1/gcdnumber)[::-1].astype(int)
         self.set_attr('miller', millers)
         #print(millers)
-        
-    
-    
-        
-    
-    
+
+
+
+
+

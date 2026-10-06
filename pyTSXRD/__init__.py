@@ -18,3 +18,6 @@ from .GrainSpotter import GrainSpotter
 from .Grain import Grain
 from .DataAnalysis import DataAnalysis
 from .PolySim import PolySim
+from .SurfaceAnalysis import SurfaceAnalysis
+from .SurfaceStructure import SurfaceStructure
+from .ImProcessor import ImProcessor

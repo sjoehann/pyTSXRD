@@ -282,7 +282,7 @@ class GrainSpotter:
         self.add_to_log(f'Running grainspotter on: {self.directory}{self.gve_file}', True)
         self.add_to_log(f'Using ini_file: {self.directory}{self.ini_file}', True)
 
-        command = 'grainspotter ' + self.directory+self.ini_file
+        command = '/software/ImageD11/2.0.2/bin/grainspotter ' + self.directory+self.ini_file
         process = subprocess.run(command.split(), check=False,stdout=subprocess.PIPE, universal_newlines=True, cwd=self.directory)
         self.add_to_log('Output:'+process.stdout, True)
         #print('Last line in the output:'+process.stdout.splitlines()[-1])

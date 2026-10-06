@@ -450,54 +450,85 @@ class Geometry:
         with open(self.directory+self.name+'.yml', "w") as f:
             yaml.dump(pars, f)
         self.add_to_log('File closed!', False)
-        return                  
-  
+        return   
+    def load_poni(self, directory=None, poni_file=None):
+        import json
+        if directory:
+            self.set_attr('directory', directory)
+        if poni_file:
+            self.set_attr('name', poni_file.replace('.poni', ''))
 
-    def load_poni(self, directory = None, poni_file = None):
-        if directory: self.set_attr('directory', directory)
-        if poni_file: self.set_attr('name', poni_file.replace('.poni',''))
-        self.add_to_log(f'Reading file: {self.directory+self.name}.poni', False)
-        if not os.path.isfile(self.directory+self.name+'.poni'): raise FileNotFoundError
+        path = self.directory + self.name + '.poni'
+        self.add_to_log(f'Reading file: {path}', False)
 
-        with open(self.directory+self.name+'.poni', "r") as f:
+        if not os.path.isfile(path):
+            raise FileNotFoundError(path)
+
+        self.set_attr('O', getattr(self, 'O', [[None, None], [None, None]]))
+
+        with open(path, "r") as f:
             for line in f:
-                if len(line) < 2: continue
-                if line[0] == '#' and 'orientation' in line:
-                    m = line.split('[[')[1].split(']]')[0]
-                    O = [int(v) for v in m.replace('], [',' ').replace(', ',' ').split()]
-                    self.set_attr('O', [[O[0], O[1]], [O[2], O[3]]])
-                words = line.split() # words in line
-                if words[1] in ['None','none', 'nan']: continue
-                if('Detector_config' in words[0]):
-                    pixel1 = 1e6*float(words[2].replace(',', '')) # in m
-                    pixel2 = 1e6*float(words[4].replace(',', '')) # in m
-                    max_shape1 = int(words[6].replace('[', '').replace(',', ''))
-                    max_shape2 = int(words[7].replace(']', '').replace('}', ''))
-                if('Distance' in words[0]): distance = 1e6*float(words[1])
-                if('Poni1' in words[0]): poni1 = 1e6*float(words[1]) # in m
-                if('Poni2' in words[0]): poni2 = 1e6*float(words[1]) # in m
-                if('Rot1' in words[0]): rot1 = float(words[1])
-                if('Rot2' in words[0]): rot2 = float(words[1])
-                if('Rot3' in words[0]): rot3 = float(words[1])
-                if('Wavelength' in words[0]): wavelength = 1e10*float(words[1]) # in m
-        f.close()
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+
+                key, value = line.split(":", 1)
+                key = key.strip()
+                value = value.strip()
+
+                if value.lower() in ["none", "nan"]:
+                    continue
+
+                if key == "Detector_config":
+                    cfg = json.loads(value)
+                    pixel1 = 1e6 * float(cfg["pixel1"])
+                    pixel2 = 1e6 * float(cfg["pixel2"])
+                    max_shape1, max_shape2 = map(int, cfg["max_shape"])
+
+                    orientation = cfg.get("orientation")
+                #if orientation == 1:
+                 #   self.set_attr('O', [[1, 0], [0, 1]])
+                #elif orientation == 2:
+                 #   self.set_attr('O', [[1, 0], [0, -1]])
+                #elif orientation == 3:
+                 #   self.set_attr('O', [[-1, 0], [0, -1]])
+                #elif orientation == 4:
+                 #   self.set_attr('O', [[-1, 0], [0, 1]])
+
+                elif key == "Distance":
+                    distance = 1e6 * float(value)
+                elif key == "Poni1":
+                    poni1 = 1e6 * float(value)
+                elif key == "Poni2":
+                    poni2 = 1e6 * float(value)
+                elif key == "Rot1":
+                    rot1 = float(value)
+                elif key == "Rot2":
+                    rot2 = float(value)
+                elif key == "Rot3":
+                    rot3 = float(value)
+                elif key == "Wavelength":
+                    wavelength = 1e10 * float(value)
+
         self.add_to_log('File closed!', False)
-        
+
         while None in np.asarray(self.O):
             print('Image orientation (O-matrix) is missing!')
             x = input('Set it as 4 spaced numbers (O11 O12 O21 O22):').split()
             self.set_attr('O', [[int(v) for v in x[0:2]], [int(v) for v in x[2:]]])
-        
+
         self.set_attr('wavelength', wavelength)
-        self.set_attr('dety_size', max_shape2) # (slow, fast)
-        self.set_attr('detz_size', max_shape1) # (slow, fast)
+        self.set_attr('dety_size', max_shape2)
+        self.set_attr('detz_size', max_shape1)
         self.set_attr('y_size', pixel2)
         self.set_attr('z_size', pixel1)
-        fable_tiltrot_zy = np.matmul(np.asarray(self.O), np.asarray([rot1, rot2])) # rot. about img. center
+
+        fable_tiltrot_zy = np.matmul(np.asarray(self.O), np.asarray([rot1, rot2]))
+
         self.set_attr('tilt', [rot3, fable_tiltrot_zy[1], fable_tiltrot_zy[0]])
-        self.set_attr('distance', distance/np.cos(rot1)/np.cos(rot2))
-        self.set_attr('y_center', -0.5 + (poni2-distance*np.tan(rot1))/pixel2)
-        self.set_attr('z_center', -0.5 + (poni1+distance*np.tan(rot2)/np.cos(rot1))/pixel1)
+        self.set_attr('distance', distance / np.cos(rot1) / np.cos(rot2))
+        self.set_attr('y_center', -0.5 + (poni2 - distance * np.tan(rot1)) / pixel2)
+        self.set_attr('z_center', -0.5 + (poni1 + distance * np.tan(rot2) / np.cos(rot1)) / pixel1)
         return
 
     

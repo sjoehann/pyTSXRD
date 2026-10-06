@@ -499,14 +499,16 @@ class DataAnalysis:
         else:
             raise ValueError('Grain number not in range!') 
             
-    def make_grainmatrix(self,completeness_th=0.5,also_plot=False,save_matrix=False):
+    def make_grainmatrix(self,completeness_th=0.5,also_plot=False,save_matrix=False,comp=True):
         """Make all completenes maps into matrix+remove very weak grains"""
         n_grains = len(self.grains)
         list_of_grains = []
+        g_index = []
         for i,g in enumerate(self.grains):
-            g.make_array(completeness_th=completeness_th,also_plot=also_plot)
+            g.make_array(completeness_th=completeness_th,also_plot=also_plot,comp=comp)
             if np.sum(g.matrix)>0:
                 list_of_grains.append(g)
+                g_index.append(i)
         self.set_attr('grains', list_of_grains)
         print('Number of grains:',len(self.grains))
         print('Removed',n_grains-len(self.grains),'grains') 
@@ -518,6 +520,7 @@ class DataAnalysis:
             output_file = open(self.directory+f'maps_{N3}x{N2}x{N1}.raw', 'wb')
             np.float32(maps).tofile(output_file)
             output_file.close()
+        return g_index
         
     def apply_samplemask(self,radius,also_plot=False,plot_invers=False,save_invers=False):
         """Remove parts of grains outside of the sample boundries"""
@@ -535,6 +538,7 @@ class DataAnalysis:
         n_grains=len(self.grains)
         list_of_grains = []
         bad_grains = []
+        ind_list = []
         # Create a mask array where elements are True if they are equal to the maximum value
         maps = np.zeros((len(self.grains),np.shape(self.grains[0].matrix)[0],np.shape(self.grains[0].matrix)[1]),dtype=float)
         for i,g in enumerate(self.grains):
@@ -551,6 +555,7 @@ class DataAnalysis:
                 plt.show()
             if np.shape(g.index)[1] > grain_th:
                 list_of_grains.append(g)
+                ind_list.append(i)
             else:
                 bad_grains.append(g)
         for g in bad_grains: #instead of having a 0 pixel in the middle of the sample we assign it to the sorounding grain.
@@ -566,7 +571,8 @@ class DataAnalysis:
                 self.grains[new_index].set_attr('index',np.nonzero(map_new))
         self.set_attr('grains', list_of_grains)
         print('Number of grains:',len(self.grains))
-        print('Removed',n_grains-len(self.grains),'grains')   
+        print('Removed',n_grains-len(self.grains),'grains')  
+        return ind_list
     
     def tilt_correction(self,ang_inc=0):
         """Corrects the grain orientationfor the angle of incidence """
@@ -586,7 +592,7 @@ class DataAnalysis:
             #print(eul[0])
             g.set_attr('phi',[-eul[0][2],eul[0][1],eul[0][0]])
 
-    def plot_colors(self,save_name,plot_type='full',also_save=False,mark_grainnumber=False,mark_millers=False,show_pos=False):
+    def plot_colors(self,save_name,plot_type='full',also_save=False,mark_grainnumber=False,mark_millers=False,show_pos=False,size="small"):
         """Plot surface as inverse pole figure map"""
         if plot_type == 'full':
             euler_list = [g.phi for g in self.grains]
@@ -600,8 +606,11 @@ class DataAnalysis:
             plt.title('')
             if also_save:
                 plt.savefig(self.directory+f'colortriangle_{save_name}.png', facecolor='white', bbox_inches='tight', transparent=True)
-                
-            figure, ax = plt.subplots(figsize=(10,10),dpi=250)
+
+            if size=="big":
+                figure, ax = plt.subplots(figsize=(10,10),dpi=250)
+            elif size=="small":
+                figure, ax = plt.subplots(figsize=(5,5),dpi=150)
             ax.set_xticks(self.plot_range)
             ax.set_xticklabels(self.label_range,fontsize=25)
             ax.set_yticks(self.plot_range)
@@ -650,10 +659,12 @@ class DataAnalysis:
 
         checked_indices = set()
         list_of_grains = []
+        dup = []
         
         for i1, g1 in enumerate(self.grains):
             if i1 not in checked_indices:
                 duplicates = [g1]
+                dupp=[i1]
                 checked_indices.add(i1)
                 for i2, g2 in enumerate(self.grains):
                     if i2 > i1 and i2 not in checked_indices:
@@ -664,6 +675,7 @@ class DataAnalysis:
                             #print(d_pos,pos_tol)
                             if d_pos > 0:
                                 duplicates.append(g2)
+                                dupp.append(i2)
                                 checked_indices.add(i2)
                 if len(duplicates) > 1:
                     for i3, g3 in enumerate(duplicates):
@@ -677,6 +689,7 @@ class DataAnalysis:
                                         if d_pos > 0:
                                             duplicates.append(g4)
                                             checked_indices.add(i4)
+                                            dupp.append(i4)
                     quality = [len(g.measured_gvectors) / g.mean_IA for g in duplicates]
                     best_index = np.argmax(quality)
                     best_grain = duplicates[best_index]
@@ -684,11 +697,13 @@ class DataAnalysis:
                     best_grain.set_attr('matrix', combined_matrix)
                     best_grain.set_attr('index', np.nonzero(combined_matrix))
                     list_of_grains.append(best_grain)
+                    dup.append(dupp)
                 else:
                     list_of_grains.append(g1)
         self.set_attr('grains', list_of_grains)
         print('Number of grains:',len(self.grains))
-        print('Removed',n_grains-len(self.grains),'grains')   
+        print('Removed',n_grains-len(self.grains),'grains') 
+        return dup
         
 
 def plot_sinogram(name, list_DATApaths):
